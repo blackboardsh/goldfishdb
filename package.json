@@ -1,0 +1,40 @@
+{
+  "name": "goldfishdb",
+  "version": "0.1.0",
+  "description": "A lightweight in-memory document database with TypeScript-first design and atomic writes",
+  "main": "src/node/index.ts",
+  "types": "dist/node/index.d.ts",
+  "directories": {
+    "test": "test"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "prebuild": "rm -rf ./dist",
+    "build": "tsc",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:types": "tsd",
+    "prepare": "npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://YoavCodes@github.com/chalksh/goldfish.git"
+  },
+  "author": "Blackboard Technologies Inc.",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/chalksh/goldfish/issues"
+  },
+  "homepage": "https://github.com/chalksh/goldfish#readme",
+  "devDependencies": {
+    "@types/jest": "^29.5.2",
+    "jest": "^29.5.0",
+    "ts-jest": "^29.1.0",
+    "tsd": "^0.28.1",
+    "typescript": "^5.1.3"
+  }
+}

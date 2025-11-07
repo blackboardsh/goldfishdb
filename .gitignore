@@ -1,0 +1,16 @@
+.DS_Store
+
+# Build artifacts
+/dist
+*.tgz
+
+# Dependencies
+node_modules/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Test coverage
+coverage/
