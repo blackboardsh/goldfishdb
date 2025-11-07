@@ -2,7 +2,7 @@
   "name": "goldfishdb",
   "version": "0.1.0",
   "description": "A lightweight in-memory document database with TypeScript-first design and atomic writes",
-  "main": "src/node/index.ts",
+  "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
   "directories": {
     "test": "test"
@@ -19,9 +19,9 @@
     "test:watch": "jest --watch",
     "test:types": "tsd",
     "prepare": "npm run build",
-    "push:patch": "npm version patch && git push origin main --tags",
-    "push:minor": "npm version minor && git push origin main --tags",
-    "push:major": "npm version major && git push origin main --tags"
+    "push:patch": "npm version patch && git push origin main --tags && npm publish",
+    "push:minor": "npm version minor && git push origin main --tags && npm publish",
+    "push:major": "npm version major && git push origin main --tags && npm publish"
   },
   "repository": {
     "type": "git",
