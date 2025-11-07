@@ -63,6 +63,8 @@ export default class DB<
     return decipher;
   };
 
+  // Inherit static v1 from Base class
+  static readonly v1 = Base.v1;
 }
 
 export * from '../core/types'
