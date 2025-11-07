@@ -1,6 +1,6 @@
 {
   "name": "goldfishdb",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "A lightweight in-memory document database with TypeScript-first design and atomic writes",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
