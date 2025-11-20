@@ -18,9 +18,11 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:types": "tsd",
-    "push:patch": "npm version patch && git push origin main --tags && npm publish",
-    "push:minor": "npm version minor && git push origin main --tags && npm publish",
-    "push:major": "npm version major && git push origin main --tags && npm publish"
+    "push:beta": "npm version prerelease --preid=beta && git push origin main --tags",
+    "push:patch": "npm version prepatch --preid=beta && git push origin main --tags",
+    "push:minor": "npm version preminor --preid=beta && git push origin main --tags",
+    "push:major": "npm version premajor --preid=beta && git push origin main --tags",
+    "push:stable": "npm version patch && git push origin main --tags"
   },
   "repository": {
     "type": "git",
