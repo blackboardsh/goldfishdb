@@ -2,6 +2,8 @@
 
 A lightweight in-memory document database with TypeScript-first design and atomic writes.
 
+Powers [Co(lab)](https://github.com/blackboardsh/colab). Perfect as a local data store for your [Electrobun](https://github.com/blackboardsh/electrobun) apps.
+
 ## Features
 
 - **TypeScript-first**: Full type safety with zero configuration
