@@ -232,9 +232,10 @@ export type StoreMigrations = {
 export interface DBConfig {
   schemaHistory: SchemaHistory;
   // used in testing
-  engine?: 'none' | 'file';
+  engine?: 'none' | 'file' | 'indexeddb';
   initialData?: any;
   db_folder?: string;
+  db_name?: string;
   // encryption passphrase (uses secure default if not provided)
   passphrase?: string;
 }

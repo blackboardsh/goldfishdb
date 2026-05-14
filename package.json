@@ -4,6 +4,16 @@
   "description": "A lightweight in-memory document database with TypeScript-first design and atomic writes",
   "main": "src/node/index.ts",
   "types": "src/node/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/node/index.ts",
+      "default": "./src/node/index.ts"
+    },
+    "./browser": {
+      "types": "./src/browser/index.ts",
+      "default": "./src/browser/index.ts"
+    }
+  },
   "directories": {
     "test": "test"
   },

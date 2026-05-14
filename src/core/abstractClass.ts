@@ -60,7 +60,11 @@ export default abstract class Base<
   saveInterval;
   // read and write to a passed in object instead of a file on disk
 
-  engine: 'none' | 'file' = 'file';
+  engine: 'none' | 'file' | 'indexeddb' = 'file';
+  db_name: string = 'goldfishdb';
+  indexedDbStoreName: string = 'documents';
+  indexedDbRecordKey: string = DB_FILE_NAME;
+  private indexedDbPromise: Promise<any> | null = null;
   
   // encryption settings (always enabled for file engine)
   private encryptionKey: Buffer | null = null;
@@ -78,12 +82,20 @@ export default abstract class Base<
   }
 
   public init(config: DBConfig) {
+    if (config.engine === 'indexeddb') {
+      throw new Error("Use initAsync() with engine 'indexeddb'");
+    }
+
     if (config.engine === 'none') {
       this.engine = 'none'
     }
 
     if (config.db_folder) {
       this.data_folder = config.db_folder;
+    }
+
+    if (config.db_name) {
+      this.db_name = config.db_name;
     }
 
     // Setup encryption (always enabled for file engine)
@@ -105,10 +117,50 @@ export default abstract class Base<
 
     this.saveInterval = setInterval(() => this.trySave(), 1000);
 
-    if (process.env.NODE_ENV !== 'test') {
+    if (typeof process !== "undefined" && process.env.NODE_ENV !== 'test') {
       process.on('beforeExit', () => {
         this.close();
       });
+    }
+
+    return this;
+  }
+
+  public async initAsync(config: DBConfig) {
+    if (config.engine !== 'indexeddb') {
+      return this.init(config);
+    }
+
+    this.engine = 'indexeddb';
+
+    if (config.db_folder) {
+      this.data_folder = config.db_folder;
+    }
+
+    if (config.db_name) {
+      this.db_name = config.db_name;
+    } else if (config.db_folder) {
+      this.db_name = config.db_folder;
+    }
+
+    await this.loadAsync(config);
+
+    const { schemaHistory } = config;
+    const currentDataVersion = schemaHistory[schemaHistory.length - 1].v;
+    const schemas = schemaHistory.filter(item => Boolean(item.schema));
+    const currentSchemaVersion = schemas[schemas.length - 1];
+    const { schema: currentSchema } = currentSchemaVersion;
+
+    this.setSchema(currentDataVersion, currentSchema as CurrentSchema, schemaHistory);
+
+    this.saveInterval = setInterval(() => {
+      void this.trySaveAsync();
+    }, 1000);
+
+    if (typeof window !== "undefined") {
+      const persist = () => { void this.trySaveAsync(); };
+      window.addEventListener("pagehide", persist);
+      window.addEventListener("beforeunload", persist);
     }
 
     return this;
@@ -171,6 +223,43 @@ export default abstract class Base<
       };
     }
 
+  }
+
+  private async loadAsync(config: DBConfig) {
+    if (this.engine !== 'indexeddb') {
+      this.load(config);
+      return;
+    }
+
+    if (config.initialData) {
+      this._data = config.initialData;
+      return;
+    }
+
+    try {
+      const serialized = await this.readIndexedDbRecord();
+      if (serialized) {
+        this._data = JSON.parse(serialized);
+      }
+    } catch (err) {
+      console.error("failed to parse on indexeddb load");
+    }
+
+    if (!this._data) {
+      this._data = {
+        stores: {
+          collection: {},
+        },
+        info: {
+          collections: {},
+        },
+        dataVersion: 0,
+        goldfishVersion: 1,
+        schema: null,
+        backups: [],
+        log: []
+      };
+    }
   }
 
   private setSchema(
@@ -519,6 +608,29 @@ export default abstract class Base<
     this.is_writing = false;
   }
 
+  private async trySaveAsync() {
+    if (this.engine !== 'indexeddb') {
+      this.trySave();
+      return;
+    }
+
+    if (this.changed === false || this.is_writing === true) {
+      return;
+    }
+
+    this.is_writing = true;
+
+    try {
+      this.changed = false;
+      const data_str = JSON.stringify(this._data);
+      await this.writeIndexedDbRecord(data_str);
+    } catch (err) {
+      console.log("error writing indexeddb: ", err);
+    }
+
+    this.is_writing = false;
+  }
+
   private saveChanges() {
     this.changed = true;
     this.trySave();
@@ -723,7 +835,7 @@ export default abstract class Base<
       const document = storeData[id];
 
       if (!document) {
-        if (process.env.NODE_ENV !== "test") {
+        if (typeof process !== "undefined" && process.env.NODE_ENV !== "test") {
           console.error('tried to update a document that does not exist with id: ', id)
         }
         return null;
@@ -981,7 +1093,16 @@ export default abstract class Base<
 
   public close() {
     clearInterval(this.saveInterval);
-    this.trySave();
+    if (this.engine === 'indexeddb') {
+      void this.trySaveAsync();
+    } else {
+      this.trySave();
+    }
+  }
+
+  public async closeAsync() {
+    clearInterval(this.saveInterval);
+    await this.trySaveAsync();
   }
 
   // make this available on both the Class and instances
@@ -1028,6 +1149,76 @@ export default abstract class Base<
     decrypted += decipher.final('utf8');
     
     return decrypted;
+  }
+
+  private getIndexedDbFactory(): any {
+    const factory = (globalThis as any).indexedDB;
+    if (!factory) {
+      throw new Error("indexedDB is not available in this environment");
+    }
+    return factory;
+  }
+
+  private async openIndexedDb(): Promise<any> {
+    if (this.indexedDbPromise) {
+      return this.indexedDbPromise;
+    }
+
+    this.indexedDbPromise = new Promise((resolve, reject) => {
+      const request = this.getIndexedDbFactory().open(this.db_name, 1);
+
+      request.onerror = () => {
+        reject(request.error || new Error(`Failed to open IndexedDB database ${this.db_name}`));
+      };
+
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains(this.indexedDbStoreName)) {
+          db.createObjectStore(this.indexedDbStoreName);
+        }
+      };
+
+      request.onsuccess = () => {
+        resolve(request.result);
+      };
+    });
+
+    return this.indexedDbPromise;
+  }
+
+  private async readIndexedDbRecord(): Promise<string | null> {
+    const db = await this.openIndexedDb();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(this.indexedDbStoreName, "readonly");
+      const store = tx.objectStore(this.indexedDbStoreName);
+      const request = store.get(this.indexedDbRecordKey);
+
+      request.onerror = () => reject(request.error || new Error("Failed to read IndexedDB record"));
+      request.onsuccess = () => {
+        const result = request.result;
+        if (typeof result === "string") {
+          resolve(result);
+        } else if (result && typeof result.data === "string") {
+          resolve(result.data);
+        } else {
+          resolve(null);
+        }
+      };
+    });
+  }
+
+  private async writeIndexedDbRecord(dataStr: string): Promise<void> {
+    const db = await this.openIndexedDb();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(this.indexedDbStoreName, "readwrite");
+      const store = tx.objectStore(this.indexedDbStoreName);
+      const request = store.put(dataStr, this.indexedDbRecordKey);
+
+      request.onerror = () => reject(request.error || new Error("Failed to write IndexedDB record"));
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error || new Error("Failed to commit IndexedDB transaction"));
+      tx.onabort = () => reject(tx.error || new Error("IndexedDB transaction aborted"));
+    });
   }
 
   // Create these for the specific runtime (node, bun, browser, s3, cloudflare, etc.)
