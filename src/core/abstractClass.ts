@@ -37,11 +37,17 @@ import {
   selectPropertiesFromDocument,
 } from "./utils";
 import { v1 } from "./schemaUtils";
-import { join } from 'path';
 
 const DEFAULT_BACKUP_LIFESPAN = 1000 * 60 * 60 * 24 * 7 * 2; // 2 weeks
 const DEFAULT_DATA_FOLDER = './data';
 const DB_FILE_NAME = 'goldfish.db';
+
+function joinPath(...parts: string[]) {
+  return parts
+    .filter(Boolean)
+    .join("/")
+    .replace(/\/+/g, "/");
+}
 
 export default abstract class Base<
   CurrentSchema extends SchemaDefinition<CurrentSchema["stores"]> // | SchemaDefinitionWithDefaults  
@@ -78,7 +84,7 @@ export default abstract class Base<
   }
 
   private getDataFilePath() {
-    return join(this.data_folder, DB_FILE_NAME);
+    return joinPath(this.data_folder, DB_FILE_NAME);
   }
 
   public init(config: DBConfig) {
